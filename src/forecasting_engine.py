@@ -6,12 +6,17 @@ import logging
 import sys
 import os
 
-# Environment Configuration and Logging Suppression
+# SILENCE ALL THE NOISE
+# 1. Standard Python warnings
 warnings.filterwarnings('ignore')
 
-# Suppress Prophet and CmdStanPy diagnostic logs
+# 2. CmdStanPy logs (the ones that say "Chain [1] start processing")
 logging.getLogger('cmdstanpy').setLevel(logging.ERROR)
+
+# 3. Prophet logs
 logging.getLogger('prophet').setLevel(logging.ERROR)
+
+# 4. Standard logging
 logging.basicConfig(level=logging.ERROR)
 
 class NullIO(object):
@@ -22,11 +27,11 @@ def run_pro_montecarlo_forecast(
     df_raw, 
     recovery_months=12,
     econ_multiplier=1.0,
-    n_samples=500  # Number of stochastic samples for the simulation
+    n_samples=500  # Start with 500 for speed, 1000 is pro but can take 15s+
 ):
     """
-    Executes a Monte Carlo Cascade Simulation for tourism arrivals and occupancy.
-    Returns summary statistics and raw stochastic paths.
+    Executes a Professional Monte Carlo Cascade Simulation.
+    Silences all output and returns stochastic paths.
     """
     # Redirect stdout to silence Prophet's internal print statements if any
     old_stdout = sys.stdout
@@ -79,9 +84,9 @@ def run_pro_montecarlo_forecast(
 
         # GET SAMPLES (STOCHASTIC)
         samples_A = m_A.predictive_samples(future_A)
-        # MEDIAN FORECAST FOR MODEL B
-        # To maintain computational efficiency in the cascade, the median arrival forecast 
-        # is used as a regressor for the occupancy model.
+        # We need the median forecast too for Stage 2 if we want to keep it simple, 
+        # but for true MC we should feed samples into Stage 2. 
+        # However, to avoid O(N^2) complexity, we use the median arrivals for Model B.
         forecast_A_summary = m_A.predict(future_A)
         
         # --- MODEL B: OCCUPANCY ---
